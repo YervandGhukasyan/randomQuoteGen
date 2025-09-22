@@ -3,9 +3,13 @@ FROM node:18-alpine AS builder
 
 WORKDIR /app
 
+# install build dependencies for native modules (like better-sqlite3)
+# python3 and make are needed for node-gyp to compile native addons
+RUN apk add --no-cache python3 make g++
+
 # copy package files first for better caching
 COPY package*.json ./
-RUN npm ci --only=production
+RUN npm ci  # install all deps including devDependencies for building
 
 # copy source and build
 COPY . .
@@ -16,14 +20,22 @@ FROM node:18-alpine AS runtime
 
 WORKDIR /app
 
+# install build deps for production dependencies (better-sqlite3 needs them)
+RUN apk add --no-cache python3 make g++
+
 # create app user (security best practice or whatever)
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nextjs -u 1001
 
-# copy built app and node_modules
+# install only production dependencies in runtime stage
+COPY package*.json ./
+RUN npm ci --omit=dev && npm cache clean --force
+
+# now remove build dependencies to keep image small
+RUN apk del python3 make g++
+
+# copy built app from builder stage
 COPY --from=builder --chown=nextjs:nodejs /app/dist ./dist
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
-COPY --from=builder --chown=nextjs:nodejs /app/package.json ./
 
 # create data directory for sqlite
 RUN mkdir -p /app/data && chown nextjs:nodejs /app/data

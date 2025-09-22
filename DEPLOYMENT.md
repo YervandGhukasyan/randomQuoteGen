@@ -66,6 +66,11 @@ npm run dev
 
 ## Troubleshooting
 
+**Docker build fails with Python errors?**
+- `better-sqlite3` needs Python to compile native code
+- The main Dockerfile installs build dependencies automatically
+- If still having issues, try `Dockerfile.alternative` (slower but no native deps)
+
 **App won't start?**
 - Check environment variables in Azure portal
 - Look at App Service logs
