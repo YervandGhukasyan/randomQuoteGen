@@ -27,7 +27,7 @@
   "author": "dev",
   "license": "MIT",
   "dependencies": {
-    "@fastify/cors": "^8.4.0",
+    "@fastify/cors": "^11.1.0",
     "@fastify/helmet": "^11.1.1",
     "@fastify/swagger": "^8.12.0",
     "@fastify/swagger-ui": "^2.0.0",
