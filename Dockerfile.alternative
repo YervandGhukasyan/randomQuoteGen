@@ -1,0 +1,46 @@
+# alternative dockerfile that avoids native dependencies
+# uses a different sqlite package that doesn't need compilation
+
+FROM node:18-alpine AS builder
+
+WORKDIR /app
+
+# copy package files
+COPY package*.json ./
+
+# temporarily replace better-sqlite3 with sqlite3 (pure JS)
+# this avoids the python/build tools requirement
+RUN npm install sqlite3 --save
+RUN npm remove better-sqlite3
+RUN npm ci --omit=dev
+
+# copy source and build
+COPY . .
+RUN npm run build
+
+# runtime image (same as original)
+FROM node:18-alpine AS runtime
+
+WORKDIR /app
+
+# create app user
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nextjs -u 1001
+
+# copy built app and dependencies
+COPY --from=builder --chown=nextjs:nodejs /app/dist ./dist
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=nextjs:nodejs /app/package.json ./
+
+# create data directory
+RUN mkdir -p /app/data && chown nextjs:nodejs /app/data
+
+USER nextjs
+
+EXPOSE 3000
+
+# health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:3000/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"
+
+CMD ["npm", "start"]

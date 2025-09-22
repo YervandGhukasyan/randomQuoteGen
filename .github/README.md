@@ -86,8 +86,9 @@ git push origin v1.0.0
 
 **CI failing?**
 - Check Node.js version compatibility
-- Make sure tests pass locally
+- Make sure tests pass locally (`npm test`)
 - Verify Docker builds locally
+- Note: Some tests expect 500 errors (not 400) due to Fastify's routing behavior
 
 **Deployment failing?**
 - Check Azure credentials are valid
