@@ -20,14 +20,22 @@ npm run dev
 
 ## Deployment
 
+### Prerequisites
+
+**For GitHub Actions deployment:**
+```bash
+# set up azure authentication (run once)
+./scripts/setup-azure-auth.sh your-username/your-repo your-azure-subscription-id
+```
+
 ### Quick Deploy
 
 ```bash
-# deploy to dev environment
+# deploy to dev environment (local)
 ./scripts/deploy.sh dev
 
-# deploy to production
-./scripts/deploy.sh prod
+# deploy via GitHub Actions (push to main or manual trigger)
+git push origin main
 ```
 
 ### Manual Steps

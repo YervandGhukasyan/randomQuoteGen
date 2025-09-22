@@ -95,6 +95,11 @@ A: Because then we can't do proper queries, concurrent writes would be a mess, a
 
 ## Quick Fixes
 
+**Container not responding immediately?**
+- Node.js apps take 5-15 seconds to start in containers
+- SQLite initialization adds a few more seconds
+- Use health checks with retries, don't expect instant responses
+
 **Build failing locally?**
 ```bash
 # Make sure you have build tools

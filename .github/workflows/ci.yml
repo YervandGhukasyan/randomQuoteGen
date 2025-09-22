@@ -85,11 +85,28 @@ jobs:
         # start container in background
         docker run -d --name test-container -p 3000:3000 quote-api:test
         
-        # wait for it to start (sqlite compilation can be slow)
-        sleep 15
+        echo "⏳ Waiting for container to start..."
         
-        # test health endpoint
-        curl -f http://localhost:3000/health || exit 1
+        # wait for container to be ready (with retries)
+        for i in {1..30}; do
+          if curl -f http://localhost:3000/health >/dev/null 2>&1; then
+            echo "✅ Container is ready after ${i} attempts"
+            break
+          fi
+          if [ $i -eq 30 ]; then
+            echo "❌ Container failed to start after 30 attempts"
+            echo "📋 Container logs:"
+            docker logs test-container
+            exit 1
+          fi
+          echo "   Attempt $i/30 failed, waiting 2s..."
+          sleep 2
+        done
+        
+        # test the API endpoints
+        echo "🧪 Testing API endpoints..."
+        curl -f http://localhost:3000/health
+        curl -f http://localhost:3000/
         
         echo "✅ Docker container is working!"
         

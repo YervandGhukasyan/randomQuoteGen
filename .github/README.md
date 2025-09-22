@@ -40,17 +40,48 @@ This project uses GitHub Actions for CI/CD. Here's what each workflow does:
 Add these secrets in your GitHub repository settings:
 
 ```
-AZURE_CREDENTIALS     # Azure service principal credentials
-SNYK_TOKEN           # Snyk API token (optional)
+AZURE_CLIENT_ID        # Azure service principal client ID
+AZURE_TENANT_ID        # Azure tenant ID
+AZURE_SUBSCRIPTION_ID  # Azure subscription ID
+SNYK_TOKEN            # Snyk API token (optional)
 ```
 
-### Azure Credentials Format
+### Setting up Azure OIDC Authentication
+
+Modern approach using OpenID Connect (more secure than client secrets):
+
+1. **Create Azure App Registration**:
+   ```bash
+   az ad app create --display-name "github-actions-quote-api"
+   ```
+
+2. **Create Service Principal**:
+   ```bash
+   az ad sp create --id <app-id>
+   ```
+
+3. **Configure Federated Credentials**:
+   ```bash
+   az ad app federated-credential create \
+     --id <app-id> \
+     --parameters @federated-credential.json
+   ```
+
+4. **Grant Azure Permissions**:
+   ```bash
+   az role assignment create \
+     --assignee <service-principal-id> \
+     --role Contributor \
+     --scope /subscriptions/<subscription-id>
+   ```
+
+### Federated Credential JSON Example
 ```json
 {
-  "clientId": "your-client-id",
-  "clientSecret": "your-client-secret", 
-  "subscriptionId": "your-subscription-id",
-  "tenantId": "your-tenant-id"
+  "name": "github-actions",
+  "issuer": "https://token.actions.githubusercontent.com",
+  "subject": "repo:your-username/your-repo:ref:refs/heads/main",
+  "audiences": ["api://AzureADTokenExchange"]
 }
 ```
 
@@ -91,6 +122,9 @@ git push origin v1.0.0
 - Note: Some tests expect 500 errors (not 400) due to Fastify's routing behavior
 
 **Deployment failing?**
+- **Azure login issues?** Make sure you've set up OIDC authentication (see above)
+- **Missing secrets?** Check that AZURE_CLIENT_ID, AZURE_TENANT_ID, and AZURE_SUBSCRIPTION_ID are set
+- **Old credentials format?** The workflow now uses OIDC instead of client secrets
 - Check Azure credentials are valid
 - Verify Terraform state isn't corrupted
 - Make sure resource names don't conflict

@@ -16,7 +16,23 @@ docker run -d \
   -e LOG_LEVEL=debug \
   quote-api:local
 
-echo "✅ Container started!"
+echo "⏳ Waiting for container to start..."
+
+# wait for the app to be ready
+for i in {1..15}; do
+  if curl -f http://localhost:3000/health >/dev/null 2>&1; then
+    echo "✅ Container is ready!"
+    break
+  fi
+  if [ $i -eq 15 ]; then
+    echo "❌ Container failed to start. Check logs:"
+    docker logs quote-api-local
+    exit 1
+  fi
+  echo "   Still starting... ($i/15)"
+  sleep 2
+done
+
 echo "🌐 API available at: http://localhost:3000"
 echo "📚 Docs at: http://localhost:3000/docs"
 echo "🔍 GraphQL at: http://localhost:3000/graphql"
