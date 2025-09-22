@@ -1,0 +1,71 @@
+# azure devops pipeline - because someone probably wants CI/CD
+trigger:
+  branches:
+    include:
+      - main
+      - develop
+
+variables:
+  - group: quote-api-vars  # create this in azure devops
+  - name: dockerRegistryServiceConnection
+    value: 'your-acr-connection'  # update this
+  - name: imageRepository
+    value: 'quote-api'
+  - name: containerRegistry
+    value: 'yourregistry.azurecr.io'  # update this
+  - name: dockerfilePath
+    value: '$(Build.SourcesDirectory)/Dockerfile'
+  - name: tag
+    value: '$(Build.BuildId)'
+
+stages:
+- stage: Build
+  displayName: Build and push
+  jobs:
+  - job: Build
+    displayName: Build
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+    - task: NodeTool@0
+      inputs:
+        versionSpec: '18.x'
+      displayName: 'Install Node.js'
+
+    - script: |
+        npm ci
+        npm run lint
+        npm test
+      displayName: 'Install deps and run tests'
+
+    - task: Docker@2
+      displayName: Build and push image
+      inputs:
+        command: buildAndPush
+        repository: $(imageRepository)
+        dockerfile: $(dockerfilePath)
+        containerRegistry: $(dockerRegistryServiceConnection)
+        tags: |
+          $(tag)
+          latest
+
+- stage: Deploy
+  displayName: Deploy to Azure
+  dependsOn: Build
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  jobs:
+  - deployment: Deploy
+    displayName: Deploy
+    environment: 'production'  # create this environment in azure devops
+    pool:
+      vmImage: ubuntu-latest
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - task: AzureWebAppContainer@1
+            displayName: 'Deploy to Azure Web App'
+            inputs:
+              azureSubscription: 'your-azure-subscription'  # update this
+              appName: '$(webAppName)'
+              containers: '$(containerRegistry)/$(imageRepository):$(tag)'

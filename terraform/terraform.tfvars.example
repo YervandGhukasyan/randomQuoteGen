@@ -1,0 +1,8 @@
+# copy this to terraform.tfvars and fill in your values
+
+environment = "dev"
+location    = "East US"  # or whatever region you prefer
+
+# for production you might want:
+# environment = "prod" 
+# location    = "West US 2"

@@ -1,0 +1,29 @@
+# stuff we don't need in the docker image
+node_modules
+npm-debug.log
+dist
+.git
+.gitignore
+README.md
+.env
+.nyc_output
+coverage
+.DS_Store
+*.log
+
+# test files
+src/__tests__
+**/*.test.ts
+**/*.spec.ts
+
+# dev stuff
+.vscode
+.idea
+*.swp
+*.swo
+
+# terraform
+terraform/
+*.tfstate
+*.tfstate.backup
+.terraform/
