@@ -1,0 +1,96 @@
+name: CI Pipeline
+
+# run on PRs and main branch pushes
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  test:
+    name: Test & Lint
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]  # test on multiple node versions
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Run linting
+      run: npm run lint
+      
+    - name: Run tests
+      run: npm test -- --coverage
+      
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      if: matrix.node-version == '18.x'  # only upload once
+      with:
+        file: ./coverage/lcov.info
+        fail_ci_if_error: false  # don't fail if codecov is down
+        
+    - name: Build project
+      run: npm run build
+      
+  security:
+    name: Security Checks
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18.x'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Run security audit
+      run: npm audit --audit-level=moderate
+      continue-on-error: true  # don't fail the build for low-severity issues
+      
+    - name: Check for outdated packages
+      run: npm outdated || true  # just informational
+      
+  docker:
+    name: Docker Build Test
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Build Docker image
+      run: docker build -t quote-api:test .
+      
+    - name: Test Docker image
+      run: |
+        # start container in background
+        docker run -d --name test-container -p 3000:3000 quote-api:test
+        
+        # wait for it to start
+        sleep 10
+        
+        # test health endpoint
+        curl -f http://localhost:3000/health || exit 1
+        
+        # cleanup
+        docker stop test-container
+        docker rm test-container

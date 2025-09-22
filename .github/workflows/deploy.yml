@@ -1,0 +1,102 @@
+name: Deploy to Azure
+
+# only deploy from main branch
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:  # allow manual deployment
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+        - dev
+        - staging
+        - prod
+
+jobs:
+  deploy:
+    name: Deploy to ${{ github.event.inputs.environment || 'dev' }}
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'dev' }}  # requires approval for prod
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18.x'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Run tests (just to be safe)
+      run: npm test
+      
+    - name: Build application
+      run: npm run build
+      
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v2
+      with:
+        terraform_version: '1.5.0'  # pin version for consistency
+        
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+        
+    - name: Deploy infrastructure
+      working-directory: ./terraform
+      env:
+        TF_VAR_environment: ${{ github.event.inputs.environment || 'dev' }}
+      run: |
+        # initialize terraform
+        terraform init
+        
+        # create workspace if it doesn't exist
+        terraform workspace select $TF_VAR_environment || terraform workspace new $TF_VAR_environment
+        
+        # plan and apply
+        terraform plan -out=tfplan
+        terraform apply -auto-approve tfplan
+        
+        # save outputs for next step
+        echo "APP_NAME=$(terraform output -raw app_name)" >> $GITHUB_ENV
+        echo "RESOURCE_GROUP=$(terraform output -raw resource_group_name)" >> $GITHUB_ENV
+        
+    - name: Create deployment package
+      run: |
+        # create zip with built app and dependencies
+        zip -r deployment.zip dist/ package.json node_modules/ \
+          -x "node_modules/.cache/*" "**/*.test.*" "**/*.spec.*"
+        
+    - name: Deploy to Azure Web App
+      uses: azure/webapps-deploy@v2
+      with:
+        app-name: ${{ env.APP_NAME }}
+        resource-group-name: ${{ env.RESOURCE_GROUP }}
+        package: deployment.zip
+        
+    - name: Test deployment
+      run: |
+        # get the app url from terraform output
+        APP_URL=$(cd terraform && terraform output -raw app_url)
+        
+        # wait a bit for the app to start
+        sleep 30
+        
+        # test health endpoint
+        echo "Testing health endpoint: $APP_URL/health"
+        curl -f "$APP_URL/health" || {
+          echo "❌ Health check failed"
+          exit 1
+        }
+        
+        echo "✅ Deployment successful!"
+        echo "🌐 App URL: $APP_URL"

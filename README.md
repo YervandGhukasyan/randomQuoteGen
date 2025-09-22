@@ -135,7 +135,16 @@ Has tests for the main service, REST routes, and GraphQL resolvers. Run with `np
 
 ## Deployment
 
-Set these environment variables:
+### Quick Deploy
+```bash
+# to dev environment
+npm run deploy:dev
+
+# to production (requires approval in GitHub)
+git tag v1.0.0 && git push origin v1.0.0
+```
+
+### Environment Variables
 ```
 PORT=3000
 NODE_ENV=production
@@ -143,6 +152,8 @@ DATABASE_PATH=./data/quotes.db
 QUOTABLE_API_URL=https://api.quotable.io
 DUMMYJSON_API_URL=https://dummyjson.com
 ```
+
+See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed instructions.
 
 ## Things I might add later
 
